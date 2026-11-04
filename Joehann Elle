@@ -1,0 +1,1140 @@
+from datetime import datetime
+
+# ============================================================
+# VARIABLES AND DATA STRUCTURES
+# ============================================================
+
+# DEMONSTRATION ONLY: replace this with administrator-managed verification
+# before using the program in a real school environment.
+STAFF_REGISTRATION_CODE = "PHINMA-STAFF-2026"
+SCHOOL_YEAR = "2026-2027"
+CLAIMING_START_TIME = "08:30 AM"
+CLAIMING_END_TIME = "04:30 PM"
+# In-memory list-based records (lists of dictionaries). Data resets when the program closes.
+DEFAULT_DATA = {
+    "users": [],
+    "modules": [
+        {
+            "code": "GEN-002",
+            "subject": "Understanding the Self",
+            "course": "BS Criminology",
+            "year": "1st Year",
+            "available": 10,
+            "total": 10,
+            "status": "Available"
+        },
+        {
+            "code": "CRI-198",
+            "subject": "Forensic Photography",
+            "course": "BS Criminology",                                                                                                                                                                             
+            "year": "3rd Year",
+            "available": 3,
+            "total": 8,
+            "status": "Available"
+        },
+        {
+            "code": "PHI-002",
+            "subject": "Logic",
+            "course": "BS Criminology",
+            "year": "1st Year",
+            "available": 0,
+            "total": 6,
+            "status": "Unavailable"
+        },
+        {
+            "code": "CRI-190",
+            "subject": "Dispute Resolution and Crisis Management",
+            "course": "BS Criminology",
+            "year": "4th Year",
+            "available": 2,
+            "total": 5,
+            "status": "Available"
+        },
+        {
+            "code": "192",
+            "subject": "Vice and Drug Education and Control",
+            "course": "BS Criminology",
+            "year": "3rd Year",
+            "available": 1,
+            "total": 5,
+            "status": "Available"
+        }
+    ],
+    "schedules": [
+        {
+            "id": 1,
+            "date": "2026-10-15",
+            "time": "09:00 AM - 10:00 AM",
+            "slots": 10,
+            "status": "Available"
+        },
+        {
+            "id": 2,
+            "date": "2026-10-15",
+            "time": "01:00 PM - 02:00 PM",
+            "slots": 10,
+            "status": "Available"
+        },
+        {
+            "id": 3,
+            "date": "2026-10-16",
+            "time": "09:00 AM - 10:00 AM",
+            "slots": 10,
+            "status": "Available"
+        }
+    ],
+    "claims": [],
+    "next_schedule_id": 4,
+    "next_claim_id": 1
+}
+
+
+# ============================================================
+# LIST-BASED IN-MEMORY STORAGE
+# ============================================================
+
+def save_data(data):
+    """Data is kept in lists in memory; no file/pickle storage is used."""
+    return
+
+
+def load_data():
+    """Create a fresh set of list-based records for this run."""
+    return {
+        key: [item.copy() if isinstance(item, dict) else item for item in value] if isinstance(value, list) else value
+        for key, value in DEFAULT_DATA.items()
+    }
+
+
+# ============================================================
+# GENERAL FUNCTIONS
+# ============================================================
+
+def clear_screen():
+    """Separate console screens without using operating-system commands."""
+    print("\n" * 3)
+
+
+def pause():
+    input("\nPress ENTER to continue...")
+
+
+def show_header(title):
+    print("\n" + "=" * 72)
+    print(title.center(72))
+    print("=" * 72)
+
+
+def get_text(prompt):
+    """Keep asking until the user enters non-empty text."""
+    while True:
+        value = input(prompt).strip()
+        if value:
+            return value
+        print("Input cannot be empty. Please try again.")
+
+
+def get_number(prompt, minimum=1, maximum=None):
+    """Validate integer input and keep looping until it is in range."""
+    while True:
+        value = input(prompt).strip()
+        try:
+            number = int(value)
+        except ValueError:
+            print("Invalid input. Enter a whole number.")
+            continue
+        if number < minimum:
+            print("Number must be at least", minimum, ".")
+            continue
+        if maximum is not None and number > maximum:
+            print("Number must not be greater than", maximum, ".")
+            continue
+        return number
+
+
+def get_quantity(prompt, minimum=0):
+    """Validate quantity input and keep looping until it meets the minimum."""
+    while True:
+        value = input(prompt).strip()
+        try:
+            quantity = int(value)
+        except ValueError:
+            print("Invalid quantity. Enter a whole number.")
+            continue
+        if quantity < minimum:
+            print("Quantity must be at least", minimum, ".")
+            continue
+        return quantity
+
+
+def get_phinmaed_email():
+    """Require a non-empty email ending in @phinmaed.com."""
+    while True:
+        email = input("PHINMAED email: ").strip().lower()
+        if "@" in email and email.split("@", 1)[0] and email.endswith("@phinmaed.com"):
+            return email
+        print("Invalid email. Use an address ending in @phinmaed.com.")
+
+
+def get_id_number(role):
+    """Validate a student/faculty ID and keep asking if it is invalid."""
+    label = "Student ID" if role == "student" else "Faculty ID"
+    while True:
+        user_id = input(label + ": ").strip()
+        if user_id and all(character.isalnum() or character in "-_" for character in user_id):
+            return user_id
+        print("Invalid ID. Use letters, numbers, hyphens, or underscores.")
+
+
+def get_year_level(prompt="Year level (1st Year/2nd Year/3rd Year/4th Year): "):
+    """Accept only the four supported year levels."""
+    valid_years = {
+        "1st year": "1st Year",
+        "2nd year": "2nd Year",
+        "3rd year": "3rd Year",
+        "4th year": "4th Year",
+    }
+    while True:
+        year = input(prompt).strip().lower()
+        if year in valid_years:
+            return valid_years[year]
+        print("Invalid year level. Enter 1st Year, 2nd Year, 3rd Year, or 4th Year.")
+
+
+def get_schedule_date():
+    """Accept only a real date in the 2026-2027 school year."""
+    while True:
+        date_text = get_text("Schedule date in school year 2026-2027 (YYYY-MM-DD): ")
+        try:
+            parsed_date = datetime.strptime(date_text, "%Y-%m-%d")
+            if parsed_date.strftime("%Y-%m-%d") == date_text and parsed_date.year in (2026, 2027):
+                return date_text
+        except ValueError:
+            pass
+        print("Invalid date. Enter a real date in 2026 or 2027, such as 2026-10-25.")
+
+
+def get_time_range():
+    """Validate a time range inside 8:30 AM to 4:30 PM."""
+    while True:
+        value = get_text("Schedule time (8:30 AM - 4:30 PM, e.g. 9:00 AM - 10:00 AM): ").upper()
+        parts = value.split("-")
+        if len(parts) != 2:
+            print("Invalid time range. Use START AM/PM - END AM/PM.")
+            continue
+        try:
+            start = datetime.strptime(parts[0].strip(), "%I:%M %p")
+            end = datetime.strptime(parts[1].strip(), "%I:%M %p")
+            earliest = datetime.strptime(CLAIMING_START_TIME, "%I:%M %p")
+            latest = datetime.strptime(CLAIMING_END_TIME, "%I:%M %p")
+            if end <= start:
+                print("End time must be later than start time.")
+                continue
+            if start < earliest or end > latest:
+                print("Claiming time must be between 8:30 AM and 4:30 PM.")
+                continue
+            return start.strftime("%I:%M %p") + " - " + end.strftime("%I:%M %p")
+        except ValueError:
+            print("Invalid time. Example: 9:00 AM - 10:00 AM.")
+
+
+# ============================================================
+# REGISTRATION AND LOGIN
+# ============================================================
+
+def get_new_password():
+    """Collect a non-empty password and confirmation."""
+    while True:
+        password = input("Create password (do not use your ID number): ")
+        if len(password) < 8:
+            print("Password must contain at least 8 characters.")
+            continue
+        confirmation = input("Confirm password: ")
+        if password != confirmation:
+            print("Passwords do not match. Try again.")
+            continue
+        return password
+
+
+def register_user(data):
+    """Register either a student or staff account."""
+    clear_screen()
+    show_header("USER REGISTRATION")
+
+    print("1. Student")
+    print("2. Staff")
+
+    account_choice = get_number("Choose account type: ", 1, 2)
+
+    if account_choice == 1:
+        role = "student"
+    elif account_choice == 2:
+        role = "staff"
+    else:
+        role = ""
+
+    if role == "staff":
+        while True:
+            staff_code = input("Staff authorization code: ").strip()
+            if staff_code == STAFF_REGISTRATION_CODE:
+                break
+            print("Incorrect authorization code. Try again or contact the administrator.")
+
+    while True:
+        email = get_phinmaed_email()
+        if not any(user["email"].lower() == email for user in data["users"]):
+            break
+        print("This PHINMAED email is already registered. Enter another email.")
+
+    while True:
+        user_id = get_id_number(role)
+        duplicate_id = any(
+            user["role"] == role and user["id_number"].lower() == user_id.lower()
+            for user in data["users"]
+        )
+        if not duplicate_id:
+            break
+        print("This ID is already registered. Enter another ID.")
+
+    full_name = get_text("Full name: ")
+    password = get_new_password()
+
+    if role == "student":
+        year = get_year_level()
+    else:
+        year = ""
+
+    new_user = {
+        "name": full_name,
+        "email": email,
+        "id_number": user_id,
+        "password": password,
+        "role": role,
+        "course": "BS Criminology",
+        "year": year
+    }
+
+    data["users"].append(new_user)
+    save_data(data)
+
+    print("\nRegistration successful!")
+    print("Username:", email)
+    pause()
+
+
+def login_user(data):
+    """Return the matching user dictionary or None."""
+    clear_screen()
+    show_header("LOGIN")
+
+    print("1. Student Login")
+    print("2. Staff Login")
+    print("3. Back")
+
+    choice = get_number("Choose account type: ", 1, 3)
+
+    if choice == 3:
+        return None
+    elif choice == 1:
+        role = "student"
+    else:
+        role = "staff"
+
+    email = get_phinmaed_email()
+    user_id = get_id_number(role)
+    while True:
+        password = input("Password: ")
+        if password:
+            break
+        print("Password cannot be empty.")
+
+    for user in data["users"]:
+        if user["role"] == role and user["email"].lower() == email.lower():
+            if user["id_number"].lower() == user_id.lower():
+                stored_password = user.get("password", "")
+                if stored_password == password:
+                    print("\nLogin successful!")
+                    print("Welcome,", user["name"])
+                    pause()
+                    return user
+
+    print("\nLogin failed.")
+    print("Check your account type, email, ID number, and password.")
+    pause()
+    return None
+
+
+# ============================================================
+# LEARNING MATERIAL FUNCTIONS
+# ============================================================
+
+def update_module_status(module):
+    """Update availability status using an if/else expression."""
+    if module["available"] > 0:
+        module["status"] = "Available"
+    else:
+        module["status"] = "Unavailable"
+
+
+def display_module(module, number=None):
+    """Display a learning material using module code and subject name."""
+    prefix = str(number) + ". " if number is not None else ""
+    print(
+        prefix + "Module Code: " + module["code"]
+        + " | Subject Name: " + module["subject"]
+        + " | Year: " + module["year"]
+        + " | Available: " + str(module["available"])
+        + "/" + str(module["total"])
+        + " | Status: " + module["status"]
+    )
+
+
+def view_modules(data):
+    """Display learning materials grouped under year-level category titles."""
+    clear_screen()
+    show_header("BS CRIMINOLOGY LEARNING MATERIALS")
+    modules = data["modules"]
+    if not modules:
+        print("No learning materials found.")
+        return
+
+    categories = ["1st Year", "2nd Year", "3rd Year", "4th Year", "Other"]
+    for category in categories:
+        category_modules = [
+            module for module in modules
+            if (module.get("year", "") if module.get("year", "") in categories[:-1] else "Other") == category
+        ]
+        if category_modules:
+            print("\n" + "=" * 72)
+            print(category.upper().center(72))
+            print("=" * 72)
+            for index, module in enumerate(category_modules, start=1):
+                display_module(module, index)
+
+
+def search_modules(data):
+    """Search learning materials and return matching modules."""
+    clear_screen()
+    show_header("SEARCH LEARNING MATERIALS")
+
+    keyword = get_text(
+        "Search module code, subject name, course, year, or status: "
+    ).lower()
+
+    results = []
+
+    for module in data["modules"]:
+        searchable_text = (
+            module["code"] + " "
+            + module["subject"] + " "
+            + module["course"] + " "
+            + module["year"] + " "
+            + module["status"]
+        ).lower()
+
+        if keyword in searchable_text:
+            results.append(module)
+
+    if len(results) == 0:
+        print("\nNo matching learning materials found.")
+    else:
+        print("\nMatching learning materials:")
+        for index in range(len(results)):
+            display_module(results[index], index + 1)
+
+    return results
+
+
+def choose_module(data):
+    """Show modules, ask for a choice, and return the selected module."""
+    modules = data["modules"]
+
+    if len(modules) == 0:
+        print("No modules available.")
+        return None
+
+    for index in range(len(modules)):
+        display_module(modules[index], index + 1)
+
+    choice = get_number(
+        "Choose module: ",
+        1,
+        len(modules)
+    )
+
+    return modules[choice - 1]
+
+
+def add_module(data):
+    """Staff function for adding a module."""
+    clear_screen()
+    show_header("ADD LEARNING MATERIAL")
+
+    while True:
+        code = get_text("Module code (letters, numbers, hyphens only): ").upper()
+        if not all(character.isalnum() or character == "-" for character in code):
+            print("Invalid module code. Use letters, numbers, and hyphens only.")
+            continue
+        if any(module["code"].lower() == code.lower() for module in data["modules"]):
+            print("That module code already exists. Enter another code.")
+            continue
+        break
+
+    subject = get_text("Subject: ")
+    year = get_year_level()
+    total = get_quantity("Total quantity: ", 1)
+    while True:
+        available = get_quantity("Available quantity: ", 0)
+        if available <= total:
+            break
+        print("Available quantity cannot be greater than total quantity. Enter it again.")
+    status = "Available" if available > 0 else "Unavailable"
+
+    new_module = {
+        "code": code,
+        "subject": subject,
+        "course": "BS Criminology",
+        "year": year,
+        "available": available,
+        "total": total,
+        "status": status
+    }
+
+    data["modules"].append(new_module)
+    save_data(data)
+
+    print("\nLearning material added successfully.")
+    pause()
+
+
+def update_module(data):
+    """Staff function for updating a module."""
+    clear_screen()
+    show_header("UPDATE LEARNING MATERIAL")
+
+    module = choose_module(data)
+
+    if module is None:
+        pause()
+        return
+
+    print("\nSelected module:")
+    display_module(module)
+
+    print("\n1. Update module code")
+    print("2. Update subject name")
+    print("3. Update year level")
+    print("4. Update total quantity")
+    print("5. Update available quantity")
+    print("6. Cancel")
+
+    choice = get_number("Choose what to update: ", 1, 6)
+
+    if choice == 1:
+        while True:
+            new_code = get_text("New module code (letters, numbers, hyphens only): ").upper()
+            if not all(character.isalnum() or character == "-" for character in new_code):
+                print("Invalid module code. Use letters, numbers, and hyphens only.")
+                continue
+            if any(other is not module and other["code"].lower() == new_code.lower()
+                   for other in data["modules"]):
+                print("That module code already exists. Enter another code.")
+                continue
+            module["code"] = new_code
+            break
+
+    elif choice == 2:
+        module["subject"] = get_text("New subject name: ")
+
+    elif choice == 3:
+        module["year"] = get_year_level("New year level (1st Year/2nd Year/3rd Year/4th Year): ")
+
+    elif choice == 4:
+        while True:
+            total = get_quantity("New total quantity: ", 1)
+            if total >= module["available"]:
+                module["total"] = total
+                break
+            print("Total cannot be less than available quantity. Enter it again.")
+
+    elif choice == 5:
+        while True:
+            available = get_quantity("New available quantity: ", 0)
+            if available <= module["total"]:
+                module["available"] = available
+                break
+            print("Available cannot be greater than total. Enter it again.")
+
+    else:
+        return
+
+    update_module_status(module)
+    save_data(data)
+
+    print("\nModule record updated successfully.")
+    pause()
+
+
+# ============================================================
+# CLAIMING SCHEDULE FUNCTIONS
+# ============================================================
+
+def display_schedules(data, only_available=True):
+    """Display schedules and return the displayed schedule list."""
+    schedules = data["schedules"]
+
+    if only_available:
+        schedules = [
+            schedule
+            for schedule in schedules
+            if schedule["status"] == "Available"
+            and schedule["slots"] > 0
+        ]
+
+    if len(schedules) == 0:
+        print("No claiming schedules available.")
+        return []
+
+    # Column titles make each schedule category clear.
+    print(f"{'ID':<5} {'DATE':<14} {'TIME':<24} {'AVAILABLE SLOTS':<18} {'STATUS'}")
+    print("-" * 76)
+    for schedule in schedules:
+        print(
+            f"{schedule['id']:<5} {schedule['date']:<14} "
+            f"{schedule['time']:<24} {schedule['slots']:<18} {schedule['status']}"
+        )
+
+    return schedules
+
+
+def create_schedule(data):
+    """Staff function for creating a claiming schedule."""
+    clear_screen()
+    show_header("CREATE CLAIMING SCHEDULE - SCHOOL YEAR " + SCHOOL_YEAR)
+
+    date_text = get_schedule_date()
+    time_text = get_time_range()
+    slots = get_quantity("Number of available slots: ", 1)
+
+    schedule = {
+        "id": data["next_schedule_id"],
+        "date": date_text,
+        "time": time_text,
+        "slots": slots,
+        "status": "Available",
+        "school_year": SCHOOL_YEAR
+    }
+
+    data["schedules"].append(schedule)
+    data["next_schedule_id"] += 1
+    save_data(data)
+
+    print("\nClaiming schedule created successfully.")
+    print("Schedule Date:", schedule["date"])
+    print("Schedule Time:", schedule["time"])
+    print("Schedule Status:", schedule["status"])
+    pause()
+
+
+def update_schedule(data):
+    """Staff function for changing a schedule status."""
+    clear_screen()
+    show_header("UPDATE CLAIMING SCHEDULE - SCHOOL YEAR " + SCHOOL_YEAR)
+
+    if len(data["schedules"]) == 0:
+        print("No schedules found.")
+        pause()
+        return
+
+    display_schedules(data, False)
+
+    while True:
+        schedule_id = get_number("Enter an existing schedule ID: ", 1)
+        selected = next((schedule for schedule in data["schedules"]
+                         if schedule["id"] == schedule_id), None)
+        if selected is not None:
+            break
+        print("Schedule ID not found. Choose an ID shown in the table.")
+
+    print("\n1. Available")
+    print("2. Closed")
+    print("3. Cancelled")
+
+    choice = get_number("Choose status: ", 1, 3)
+
+    if choice == 1:
+        selected["status"] = "Available"
+    elif choice == 2:
+        selected["status"] = "Closed"
+    else:
+        selected["status"] = "Cancelled"
+
+    save_data(data)
+
+    print("Schedule updated successfully.")
+    pause()
+
+
+# ============================================================
+# STUDENT CLAIMING FUNCTIONS
+# ============================================================
+
+def request_claim(data, student):
+    """Student function for requesting a claiming schedule."""
+    clear_screen()
+    show_header("REQUEST LEARNING MATERIAL CLAIM")
+
+    available_modules = []
+
+    for module in data["modules"]:
+        if module["available"] > 0:
+            if module["status"] == "Available":
+                available_modules.append(module)
+
+    if len(available_modules) == 0:
+        print("No learning materials are currently available.")
+        pause()
+        return
+
+    print("AVAILABLE LEARNING MATERIALS\n")
+
+    for index in range(len(available_modules)):
+        display_module(available_modules[index], index + 1)
+
+    module_choice = get_number(
+        "Choose module: ",
+        1,
+        len(available_modules)
+    )
+
+    selected_module = available_modules[module_choice - 1]
+
+    print("\nAVAILABLE CLAIMING SCHEDULES\n")
+    available_schedules = display_schedules(data, True)
+
+    if len(available_schedules) == 0:
+        pause()
+        return
+
+    schedule_choice = get_number(
+        "Choose schedule: ",
+        1,
+        len(available_schedules)
+    )
+
+    selected_schedule = available_schedules[schedule_choice - 1]
+
+    # Prevent duplicate active requests.
+    for claim in data["claims"]:
+        if claim["student_email"].lower() == student["email"].lower():
+            if claim["module_code"] == selected_module["code"]:
+                if claim["status"] == "Pending" or claim["status"] == "Confirmed":
+                    print("\nYou already have an active claim for this module.")
+                    pause()
+                    return
+
+    new_claim = {
+        "id": data["next_claim_id"],
+        "student_name": student["name"],
+        "student_email": student["email"],
+        "student_id": student["id_number"],
+        "module_code": selected_module["code"],
+        "module_subject": selected_module["subject"],
+        "schedule_id": selected_schedule["id"],
+        "date": selected_schedule["date"],
+        "time": selected_schedule["time"],
+        "status": "Pending"
+    }
+
+    # Reserve one copy immediately so concurrent requests in this program
+    # cannot all claim the same final copy while awaiting staff approval.
+    if selected_module["available"] <= 0:
+        print("Sorry, no copy remains for this module.")
+        pause()
+        return
+
+    selected_module["available"] -= 1
+    update_module_status(selected_module)
+    data["claims"].append(new_claim)
+    data["next_claim_id"] += 1
+
+    # One schedule slot is reserved for the request.
+    selected_schedule["slots"] -= 1
+
+    if selected_schedule["slots"] == 0:
+        selected_schedule["status"] = "Closed"
+
+    save_data(data)
+
+    print("\nClaim request submitted successfully.")
+    print("Subject Name:", selected_module["subject"])
+    print("Module Code:", selected_module["code"])
+    print("Date:", selected_schedule["date"])
+    print("Time:", selected_schedule["time"])
+    print("Status: Pending")
+    pause()
+
+
+def view_my_claims(data, student):
+    """Display claims belonging to the logged-in student."""
+    clear_screen()
+    show_header("MY CLAIMING RECORDS")
+
+    found = False
+
+    for claim in data["claims"]:
+        if claim["student_email"].lower() == student["email"].lower():
+            found = True
+            print("Claim ID:", claim["id"])
+            print("Subject:", claim.get("module_subject", claim.get("module_code", "Unknown subject")))
+            print("Code:", claim["module_code"])
+            print("Date:", claim["date"])
+            print("Time:", claim["time"])
+            print("Status:", claim["status"])
+            print("-" * 72)
+
+    if not found:
+        print("You have no claiming records.")
+
+    pause()
+
+
+# ============================================================
+# STAFF CLAIMING RECORD FUNCTIONS
+# ============================================================
+
+def view_claim_records(data):
+    """Display all student claiming records."""
+    clear_screen()
+    show_header("ALL CLAIMING RECORDS")
+
+    if len(data["claims"]) == 0:
+        print("No claiming records found.")
+        pause()
+        return
+
+    for claim in data["claims"]:
+        print(
+            "Claim ID:", claim["id"],
+            "| Student:", claim["student_name"],
+            "| Module:", claim.get("module_subject", claim.get("module_code", "Unknown subject")),
+            "| Date:", claim["date"],
+            "| Time:", claim["time"],
+            "| Status:", claim["status"]
+        )
+        print("Student ID:", claim["student_id"])
+        print("-" * 72)
+
+    pause()
+
+
+def update_claim_status(data):
+    """Staff function for confirming, completing, or cancelling claims."""
+    clear_screen()
+    show_header("UPDATE CLAIM STATUS")
+
+    if len(data["claims"]) == 0:
+        print("No claiming records found.")
+        pause()
+        return
+
+    for claim in data["claims"]:
+        print(
+            str(claim["id"]) + ". "
+            + claim["student_name"] + " | "
+            + claim.get("module_subject", claim.get("module_code", "Unknown subject")) + " | "
+            + claim["status"]
+        )
+
+    while True:
+        claim_id = get_number("Enter an existing claim ID: ", 1)
+        selected_claim = next((claim for claim in data["claims"]
+                               if claim["id"] == claim_id), None)
+        if selected_claim is not None:
+            break
+        print("Claim ID not found. Choose an ID shown above.")
+
+    print("\n1. Leave as Pending")
+    print("2. Approve request")
+    print("3. Mark as Completed (student received the module)")
+    print("4. Reject/Cancel request")
+
+    choice = get_number("Choose an action: ", 1, 4)
+
+    if choice == 1:
+        new_status = "Pending"
+    elif choice == 2:
+        new_status = "Confirmed"
+    elif choice == 3:
+        new_status = "Completed"
+    else:
+        new_status = "Cancelled"
+
+    old_status = selected_claim["status"]
+
+    if old_status == "Completed" and new_status != "Completed":
+        print("A completed claim cannot be changed because the module was recorded as distributed.")
+        pause()
+        return
+
+    if old_status == "Cancelled" and new_status != "Cancelled":
+        print("A cancelled claim cannot be reopened. Ask the student to submit a new request.")
+        pause()
+        return
+
+    selected_module = None
+    for module in data["modules"]:
+        if module["code"] == selected_claim["module_code"]:
+            selected_module = module
+            break
+
+    # Copies are reserved when a request is submitted, not at completion.
+    # Completing a request therefore does not subtract a second copy.
+    if new_status == "Cancelled" and old_status in ("Pending", "Confirmed"):
+        if selected_module is not None and selected_module["available"] < selected_module["total"]:
+            selected_module["available"] += 1
+            update_module_status(selected_module)
+
+        # Release the schedule slot reserved by this request.
+        for schedule in data["schedules"]:
+            if schedule["id"] == selected_claim["schedule_id"]:
+                schedule["slots"] += 1
+                if schedule["status"] in ("Closed", "Cancelled"):
+                    schedule["status"] = "Available"
+                break
+
+    selected_claim["status"] = new_status
+    save_data(data)
+
+    print("\nClaim status updated to:", new_status)
+    pause()
+
+
+# ============================================================
+# STUDENT MENU
+# ============================================================
+
+def student_menu(data, student):
+    """Console menu for students."""
+    while True:
+        clear_screen()
+        show_header("BS CRIMINOLOGY STUDENT MENU")
+
+        print("Student:", student["name"])
+        print("Email:", student["email"])
+        print("Year:", student["year"])
+        print()
+        print("1. View Learning Materials")
+        print("2. Search Learning Materials")
+        print("3. View Claiming Schedules")
+        print("4. Request Claiming Schedule")
+        print("5. View My Claims")
+        print("6. Logout")
+
+        choice = get_number("Choose an option: ", 1, 6)
+
+        if choice == 1:
+            view_modules(data)
+            pause()
+
+        elif choice == 2:
+            search_modules(data)
+            pause()
+
+        elif choice == 3:
+            clear_screen()
+            show_header("CLAIMING SCHEDULES")
+            print("\nSCHEDULE CATEGORY")
+            display_schedules(data, True)
+            pause()
+
+        elif choice == 4:
+            request_claim(data, student)
+
+        elif choice == 5:
+            view_my_claims(data, student)
+
+        else:
+            print("\nStudent logged out.")
+            pause()
+            break
+
+
+# ============================================================
+# STAFF MENUS
+# ============================================================
+
+
+def staff_module_menu(data):
+    """Console menu for staff learning-material management."""
+    while True:
+        clear_screen()
+        show_header("STAFF - LEARNING MATERIAL MANAGEMENT")
+
+        print("1. View Learning Materials")
+        print("2. Add Learning Material")
+        print("3. Update Learning Material")
+        print("4. Search Learning Materials")
+        print("5. Back")
+
+        choice = get_number("Choose an option: ", 1, 5)
+
+        if choice == 1:
+            view_modules(data)
+            pause()
+
+        elif choice == 2:
+            add_module(data)
+
+        elif choice == 3:
+            update_module(data)
+
+        elif choice == 4:
+            search_modules(data)
+            pause()
+
+        else:
+            break
+
+
+def staff_schedule_menu(data):
+    """Console menu for staff schedule and claim management."""
+    while True:
+        clear_screen()
+        show_header("STAFF - CLAIMING SCHEDULE MANAGEMENT")
+
+        print("1. View Claiming Schedules")
+        print("2. Create Claiming Schedule")
+        print("3. Update Schedule Status")
+        print("4. View Claiming Records")
+        print("5. Update Claim Status")
+        print("6. Back")
+
+        choice = get_number("Choose an option: ", 1, 6)
+
+        if choice == 1:
+            clear_screen()
+            show_header("CLAIMING SCHEDULES")
+            display_schedules(data, False)
+            pause()
+
+        elif choice == 2:
+            create_schedule(data)
+
+        elif choice == 3:
+            update_schedule(data)
+
+        elif choice == 4:
+            view_claim_records(data)
+
+        elif choice == 5:
+            update_claim_status(data)
+
+        else:
+            break
+
+
+def view_registered_users(data):
+    """Allow staff to review registered student and staff accounts."""
+    clear_screen()
+    show_header("REGISTERED STUDENT AND STAFF ACCOUNTS")
+    if not data["users"]:
+        print("No registered accounts found.")
+        pause()
+        return
+    for index, user in enumerate(data["users"], start=1):
+        print(str(index) + ". " + user["name"])
+        print("   Role:", user["role"].title())
+        print("   Email:", user["email"])
+        # Do not display student/faculty ID numbers in the account listing.
+        if user["role"] == "student":
+            print("   Course:", user.get("course", "BS Criminology"))
+            print("   Year:", user.get("year", "Not provided"))
+        print("-" * 72)
+    pause()
+
+
+def staff_menu(data, staff):
+    """Console menu for authorized staff."""
+    while True:
+        clear_screen()
+        show_header("AUTHORIZED STAFF MENU")
+
+        print("Staff:", staff["name"])
+        print("Email:", staff["email"])
+        print()
+        print("1. Manage Learning Materials")
+        print("2. Manage Claiming Schedules")
+        print("3. View Claiming Records")
+        print("4. View Registered Accounts")
+        print("5. Logout")
+
+        choice = get_number("Choose an option: ", 1, 5)
+
+        if choice == 1:
+            staff_module_menu(data)
+
+        elif choice == 2:
+            staff_schedule_menu(data)
+
+        elif choice == 3:
+            view_claim_records(data)
+
+        elif choice == 4:
+            view_registered_users(data)
+
+        else:
+            print("\nStaff logged out.")
+            pause()
+            break
+
+
+# ============================================================
+# MAIN CONSOLE SYSTEM FLOW
+# ============================================================
+
+def main():
+    """Main system flow."""
+    data = load_data()
+
+    while True:
+        clear_screen()
+        show_header(
+            "BS CRIMINOLOGY LEARNING MATERIALS MONITORING "
+            "& CLAIMING SCHEDULE SYSTEM"
+        )
+
+        print("PHINMA Cagayan de Oro College")
+        print()
+        print("1. Register")
+        print("2. Login")
+        print("3. Exit")
+
+        choice = get_number("Choose an option: ", 1, 3)
+
+        if choice == 1:
+            register_user(data)
+
+        elif choice == 2:
+            logged_user = login_user(data)
+
+            if logged_user is not None:
+                if logged_user["role"] == "staff":
+                    staff_menu(data, logged_user)
+                else:
+                    student_menu(data, logged_user)
+
+        else:
+            save_data(data)
+            clear_screen()
+            show_header("SYSTEM CLOSED")
+            print("Thank you for using the system.")
+            break
+
+
+# ============================================================
+# START THE PROGRAM DIRECTLY
+# No if __name__ == "__main__" launcher is used.
+# ============================================================
+
+main()
